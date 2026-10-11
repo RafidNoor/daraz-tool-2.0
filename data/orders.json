@@ -1,0 +1,26 @@
+[
+  {
+    "id": "ORD-1001",
+    "customer": "Rahim Ahmed",
+    "items": "Logitech G102 x1",
+    "total": 2500,
+    "date": "2026-10-09",
+    "status": "Pending"
+  },
+  {
+    "id": "ORD-1002",
+    "customer": "Sumi Akter",
+    "items": "TP-Link Archer C6 x1",
+    "total": 4200,
+    "date": "2026-10-08",
+    "status": "Shipped"
+  },
+  {
+    "id": "ORD-1003",
+    "customer": "Karim Ullah",
+    "items": "Razer DeathAdder x1, Mousepad x1",
+    "total": 6800,
+    "date": "2026-10-07",
+    "status": "Delivered"
+  }
+]

@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Desk | Daraz Automation</title>
+    <meta name="description" content="Local web application for supplier scraping, product management, and Daraz order tracking.">
+    <meta property="og:title" content="Supplier Desk | Daraz Automation">
+    <meta property="og:description" content="Local web application for supplier scraping, product management, and Daraz order tracking.">
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --accent: #3b82f6;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+        }
+        .sidebar-item {
+            transition: all 0.2s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            color: var(--text-muted);
+        }
+        .sidebar-item:hover {
+            background-color: #334155;
+            color: var(--text-main);
+        }
+        .sidebar-item.active {
+            background-color: var(--accent);
+            color: white;
+        }
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+        }
+        input, select, textarea {
+            background-color: #0f172a !important;
+            border: 1px solid var(--border) !important;
+            color: white !important;
+            border-radius: 0.375rem !important;
+        }
+        .btn-primary {
+            background-color: var(--accent);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+        .btn-primary:hover { opacity: 0.9; }
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .img-card {
+            position: relative;
+            aspect-ratio: 1/1;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .img-card.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--bg-dark), 0 0 0 4px var(--accent);
+        }
+        .img-card .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            opacity: 0;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .img-card:hover .overlay { opacity: 1; }
+        .img-card .remove-btn {
+            position: absolute;
+            top: -8px; right: -8px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 20px; height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            z-index: 10;
+        }
+        .img-card.main-image {
+            border-color: #10b981;
+            box-shadow: 0 0 0 2px var(--bg-dark), 0 0 0 4px #10b981;
+        }
+        .main-badge {
+            position: absolute;
+            bottom: 4px; left: 4px;
+            background: #10b981;
+            color: white;
+            font-size: 8px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 border-r border-slate-800 flex flex-col p-4 gap-6">
+        <div class="flex items-center gap-2 px-2 mb-4">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <i data-lucide="package" class="text-white w-5 h-5"></i>
+            </div>
+            <h1 class="font-bold text-lg tracking-tight">Supplier Desk</h1>
+        </div>
+
+        <nav class="flex flex-col gap-1">
+            <div class="sidebar-item active" onclick="showView('products')" id="nav-products">
+                <i data-lucide="layout-grid" class="w-5 h-5"></i> Products
+            </div>
+            <div class="sidebar-item" onclick="showView('upload')" id="nav-upload">
+                <i data-lucide="upload-cloud" class="w-5 h-5"></i> Upload
+            </div>
+            <div class="sidebar-item" onclick="showView('research')" id="nav-research">
+                <i data-lucide="search" class="w-5 h-5"></i> Price Research
+            </div>
+            <div class="sidebar-item" onclick="showView('platforms')" id="nav-platforms">
+                <i data-lucide="globe" class="w-5 h-5"></i> Selling Platforms
+            </div>
+            <div class="sidebar-item" onclick="showView('orders')" id="nav-orders">
+                <i data-lucide="shopping-cart" class="w-5 h-5"></i> Orders
+            </div>
+            <div class="sidebar-item" onclick="showView('settings')" id="nav-settings">
+                <i data-lucide="settings" class="w-5 h-5"></i> Settings
+            </div>
+        </nav>
+
+        <div class="mt-auto border-t border-slate-800 pt-4 px-2">
+            <div class="text-xs text-slate-500 mb-2 uppercase font-semibold">Status</div>
+            <div class="flex items-center gap-2 text-sm text-slate-300">
+                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>API: Awaiting Approval</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-8">
+
+        <!-- View: Products -->
+        <div id="view-products" class="view active">
+            <div class="flex justify-between items-end mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold">Published Products</h2>
+                    <p class="text-slate-400">Products that have passed QC and are ready for Daraz</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="syncSelectedStock()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-md text-sm font-medium flex items-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync Selected Stock
+                    </button>
+                    <button onclick="exportCSV()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-md text-sm font-medium">Export CSV</button>
+                    <button onclick="exportJSON()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-md text-sm font-medium">Export JSON</button>
+                </div>
+            </div>
+
+            <div class="card overflow-hidden">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-800/50 text-slate-400 uppercase text-xs font-semibold">
+                        <tr>
+                            <th class="px-4 py-3 w-10 text-center">Select</th>
+                            <th class="px-4 py-3">Product</th>
+                            <th class="px-4 py-3">Cost</th>
+                            <th class="px-4 py-3">Sell Price</th>
+                            <th class="px-4 py-3">Stock</th>
+                            <th class="px-4 py-3">Status</th>
+                            <th class="px-4 py-3 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="product-list" class="divide-y divide-slate-800">
+                        <!-- Dynamic Content -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- View: Upload -->
+        <div id="view-upload" class="view">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold">Upload & Drafts</h2>
+                <p class="text-slate-400">Import items and refine them in the Drafts area before publishing</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <i data-lucide="zap" class="w-5 h-5 text-yellow-500"></i> Normal Upload
+                    </h3>
+                    <p class="text-sm text-slate-400 mb-6">Fast import for one or more product links.</p>
+                    <div class="flex flex-col gap-4">
+                        <textarea id="upload-urls" rows="4" placeholder="Enter URLs (one per line)..." class="p-3 text-sm"></textarea>
+                        <button onclick="doUpload('normal')" id="btn-upload-normal" class="btn-primary">Start Import</button>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-5 h-5 text-blue-500"></i> Advanced Upload
+                    </h3>
+                    <p class="text-sm text-slate-400 mb-6">Detailed import with pre-validation.</p>
+                    <div class="flex flex-col gap-4">
+                        <input type="text" id="upload-advanced-url" placeholder="Paste product URL here..." class="p-3 text-sm">
+                        <div class="flex gap-4">
+                            <button onclick="doUpload('advanced')" id="btn-upload-advanced" class="btn-primary flex-1">Validate & Import</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="import-status" class="mt-8 hidden mb-12">
+                <h4 class="text-sm font-medium mb-3 text-slate-400">Import Progress</h4>
+                <div id="import-log" class="card p-4 h-64 overflow-y-auto font-mono text-xs space-y-1"></div>
+            </div>
+
+            <div class="mt-12">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-2xl font-bold">Pending Drafts</h3>
+                        <p class="text-slate-400">Items requiring QC review before publishing</p>
+                    </div>
+                    <button onclick="loadDrafts()" class="text-sm text-blue-400 hover:underline flex items-center gap-1">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i> Refresh Drafts
+                    </button>
+                </div>
+
+                <div class="card overflow-hidden">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800/50 text-slate-400 uppercase text-xs font-semibold">
+                            <tr>
+                                <th class="px-4 py-3">Product</th>
+                                <th class="px-4 py-3">QC Status</th>
+                                <th class="px-4 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="draft-list" class="divide-y divide-slate-800"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- View: Research -->
+        <div id="view-research" class="view">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold">Price Research</h2>
+                <p class="text-slate-400">Search Daraz directly to find the best competitive pricing</p>
+            </div>
+            <div class="max-w-4xl space-y-6">
+                <div class="card p-6">
+                    <label class="block text-sm font-medium text-slate-400 mb-2">Product Title(s)</label>
+                    <div class="flex flex-col gap-4">
+                        <textarea id="res-q" rows="2" placeholder="Enter product title..." class="p-3 text-sm"></textarea>
+                        <div class="flex gap-3">
+                            <select id="res-sort" class="p-2 text-sm flex-1">
+                                <option value="priceAsc">Price: Low to High</option>
+                                <option value="priceDesc">Price: High to Low</option>
+                            </select>
+                            <button onclick="doResearchSearch()" class="btn-primary flex items-center gap-2 px-6">
+                                <i data-lucide="search" class="w-4 h-4"></i> Search Daraz
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="res-results-container" class="hidden card overflow-hidden">
+                    <div class="p-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
+                        <h3 class="text-sm font-semibold">Daraz Search Results</h3>
+                        <span id="res-count" class="text-xs text-slate-500">0 products found</span>
+                    </div>
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800/50 text-slate-400 uppercase text-xs font-semibold">
+                            <tr>
+                                <th class="px-4 py-3">Product Name</th>
+                                <th class="px-4 py-3 text-right">Price</th>
+                                <th class="px-4 py-3 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="res-list" class="divide-y divide-slate-800"></tbody>
+                    </table>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="card p-6">
+                        <h3 class="text-lg font-semibold mb-4">Profitability Calc</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-400 mb-2">Your Cost Price</label>
+                                <input type="number" id="res-cost" placeholder="0.00" class="w-full p-3 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-400 mb-2">Observed Lowest Price</label>
+                                <input type="number" id="res-lowest" placeholder="0.00" class="w-full p-3 text-sm">
+                            </div>
+                            <button onclick="calcResearch()" class="btn-primary w-full py-3">Calculate Profitability</button>
+                        </div>
+                    </div>
+                    <div id="res-result" class="hidden card p-6 border-l-4 border-blue-500 flex flex-col justify-center">
+                        <div class="grid grid-cols-3 gap-4 text-center mb-4">
+                            <div><div class="text-xs text-slate-400 uppercase">Margin</div><div id="res-margin" class="text-xl font-bold">--</div></div>
+                            <div><div class="text-xs text-slate-400 uppercase">Margin %</div><div id="res-margin-pct" class="text-xl font-bold">--</div></div>
+                            <div><div class="text-xs text-slate-400 uppercase">Undercut</div><div id="res-undercut" class="text-xl font-bold text-blue-400">--</div></div>
+                        </div>
+                        <div id="res-profit-status" class="text-center text-sm font-medium p-2 rounded bg-slate-900/50"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View: Platforms -->
+        <div id="view-platforms" class="view">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold">Selling Platforms</h2>
+                <p class="text-slate-400">Manage your connected stores and API credentials</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="card p-6 border-t-4 border-orange-500">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center font-bold text-white">D</div>
+                        <h3 class="text-lg font-bold">Daraz Bangladesh</h3>
+                    </div>
+                    <div class="space-y-2 mb-6">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">Status:</span>
+                            <span class="text-green-400">Connected</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">API Mode:</span>
+                            <span class="text-slate-300">Production</span>
+                        </div>
+                    </div>
+                    <button onclick="showView('settings')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 rounded-md text-xs font-medium">Manage API Keys</button>
+                </div>
+                <div class="card p-6 border-t-4 border-slate-700 opacity-60">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center font-bold text-white">+</div>
+                        <h3 class="text-lg font-bold">Add Platform</h3>
+                    </div>
+                    <p class="text-sm text-slate-500 mb-6">Coming soon: Support for Shopify, WooCommerce, etc.</p>
+                    <button disabled class="w-full py-2 bg-slate-800 text-slate-500 rounded-md text-xs font-medium cursor-not-allowed">Add New Store</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View: Orders -->
+        <div id="view-orders" class="view">
+            <div class="flex justify-between items-end mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold">Orders</h2>
+                    <p class="text-slate-400">Manage and track customer orders</p>
+                </div>
+                <button onclick="syncOrders()" id="btn-sync-orders" class="btn-primary flex items-center gap-2">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync with Daraz
+                </button>
+            </div>
+            <div class="card overflow-hidden">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-800/50 text-slate-400 uppercase text-xs font-semibold">
+                        <tr>
+                            <th class="px-4 py-3">Order ID</th>
+                            <th class="px-4 py-3">Customer</th>
+                            <th class="px-4 py-3">Items</th>
+                            <th class="px-4 py-3">Total</th>
+                            <th class="px-4 py-3">Date</th>
+                            <th class="px-4 py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="order-list" class="divide-y divide-slate-800"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- View: Settings -->
+        <div id="view-settings" class="view">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold">Settings</h2>
+                <p class="text-slate-400">Configure pricing and scraping behavior</p>
+            </div>
+            <div class="max-w-2xl space-y-6">
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">Pricing Rules</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs text-slate-400 uppercase">Markup (%)</label>
+                            <input type="number" id="cfg-markup" step="0.1" class="p-2 text-sm">
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs text-slate-400 uppercase">Fixed Add (Tk)</label>
+                            <input type="number" id="cfg-fixed" class="p-2 text-sm">
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs text-slate-400 uppercase">Round To (Tk)</label>
+                            <input type="number" id="cfg-round" class="p-2 text-sm">
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs text-slate-400 uppercase">Fetch Delay (sec)</label>
+                            <input type="number" id="cfg-delay" class="p-2 text-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">Daraz API Settings</h3>
+                    <div class="space-y-4">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs text-slate-400 uppercase">App Key</label>
+                            <input type="text" id="cfg-app-key" class="p-2 text-sm" placeholder="Enter App Key">
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs text-slate-400 uppercase">Secret</label>
+                            <input type="password" id="cfg-secret" class="p-2 text-sm" placeholder="Enter Secret">
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs text-slate-400 uppercase">Access Token</label>
+                            <input type="text" id="cfg-token" class="p-2 text-sm" placeholder="Enter Access Token">
+                        </div>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">Cost Price Modes</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm">Ryans BD</span>
+                            <select id="cfg-mode-ryans" class="p-2 text-sm">
+                                <option value="special">Special Price</option>
+                                <option value="regular">Regular Price</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm">StarTech BD</span>
+                            <select id="cfg-mode-startech" class="p-2 text-sm">
+                                <option value="special">Special Price</option>
+                                <option value="regular" selected>Regular Price</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="saveSettings()" class="btn-primary w-full py-3 text-lg">Save All Settings</button>
+            </div>
+        </div>
+
+        <!-- Detailed Product Editor Modal -->
+        <div id="modal-review" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+            <div class="card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-0 flex flex-col">
+                <div class="p-6 border-b border-slate-800 flex justify-between items-center sticky top-0 bg-slate-800 z-10">
+                    <div>
+                        <h3 class="text-2xl font-bold">Product Detail Editor</h3>
+                        <p class="text-sm text-slate-400">Review and refine your product before publishing to Daraz</p>
+                    </div>
+                    <button onclick="closeReview()" class="text-slate-400 hover:text-white">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div class="p-6 space-y-8">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 text-blue-400 font-semibold uppercase text-xs tracking-wider">
+                            <i data-lucide="info" class="w-4 h-4"></i> Basic Information
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-xs text-slate-400 mb-1">Product Title</label>
+                                <input type="text" id="rev-name" class="w-full p-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Brand</label>
+                                <input type="text" id="rev-brand" class="w-full p-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Category Hint</label>
+                                <input type="text" id="rev-cat" class="w-full p-2 text-sm" disabled>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 text-blue-400 font-semibold uppercase text-xs tracking-wider">
+                            <i data-lucide="file-text" class="w-4 h-4"></i> Content & Description
+                        </div>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Highlights (Bullet points, one per line)</label>
+                                <textarea id="rev-highlights" rows="4" class="w-full p-2 text-sm" placeholder="e.g. Fast Charging&#10;Water Resistant"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Detailed Description</label>
+                                <textarea id="rev-desc" rows="5" class="w-full p-2 text-sm"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">What's in the box?</label>
+                                <input type="text" id="rev-box" class="w-full p-2 text-sm">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 text-blue-400 font-semibold uppercase text-xs tracking-wider">
+                                <i data-lucide="image" class="w-4 h-4"></i> Product Images
+                            </div>
+                            <button onclick="openAddImageModal()" class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded flex items-center gap-1">
+                                <i data-lucide="plus" class="w-3 h-3"></i> Add Image
+                            </button>
+                        </div>
+                        <div id="rev-image-gallery" class="grid grid-cols-4 sm:grid-cols-6 gap-4 p-1"></div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 text-blue-400 font-semibold uppercase text-xs tracking-wider">
+                            <i data-lucide="truck" class="w-4 h-4"></i> Logistics & Warranty
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Weight (kg)</label>
+                                <input type="text" id="rev-weight" class="w-full p-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Dimensions (cm)</label>
+                                <input type="text" id="rev-dims" class="w-full p-2 text-sm" placeholder="LxWxH">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Warranty</label>
+                                <input type="text" id="rev-warranty" class="w-full p-2 text-sm">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card bg-slate-900/50 p-4 border-l-4 border-blue-500">
+                        <h4 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                            <i data-lucide="clipboard-check" class="w-4 h-4 text-blue-400"></i> QC Readiness Check
+                        </h4>
+                        <div id="rev-checklist" class="space-y-2 text-sm"></div>
+                    </div>
+                </div>
+                <div class="p-6 border-t border-slate-800 flex justify-between items-center bg-slate-800/30">
+                    <div id="rev-status-badge" class="text-xs font-medium px-2 py-1 rounded bg-slate-700 text-slate-300">Status: Draft</div>
+                    <div class="flex gap-3">
+                        <button onclick="closeReview()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-md text-sm">Cancel</button>
+                        <button onclick="saveReview()" class="btn-primary">Save Changes</button>
+                        <button onclick="publishProduct()" id="btn-publish" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md text-sm font-bold flex items-center gap-2">
+                            <i data-lucide="send" class="w-4 h-4"></i> Publish to Daraz
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Image Modal -->
+        <div id="modal-add-image" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
+            <div class="card w-full max-w-md p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold">Add Image</h3>
+                    <button onclick="closeAddImageModal()" class="text-slate-400 hover:text-white">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-2 uppercase font-semibold">Image URL</label>
+                        <input type="text" id="add-img-url" placeholder="Enter Image URL" class="w-full p-3 text-sm">
+                    </div>
+                    <div class="flex flex-col gap-3">
+                        <button onclick="submitAddImage()" class="btn-primary w-full py-3">Add Image</button>
+                        <button onclick="closeAddImageModal()" class="text-sm text-slate-400 hover:text-white py-2">Cancel</button>
+                    </div>
+                    <div class="pt-4 border-t border-slate-800 flex items-center justify-center gap-2 text-sm text-slate-500 cursor-pointer hover:text-slate-300">
+                        <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                        <span>Upload image from computer (Coming Soon)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+            document.getElementById('view-' + viewId).classList.add('active');
+            document.getElementById('nav-' + viewId).classList.add('active');
+            if (viewId === 'products') loadProducts();
+            if (viewId === 'orders') loadOrders();
+            if (viewId === 'settings') loadSettings();
+        }
+
+        async function api(path, method = 'GET', body = null, params = null) {
+            let url = path;
+            if (params) {
+                const searchParams = new URLSearchParams(params);
+                url += `?${searchParams.toString()}`;
+            }
+
+            const options = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) options.body = JSON.stringify(body);
+            const res = await fetch(url, options);
+
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`Server Error ${res.status}: ${text.slice(0, 100)}...`);
+            }
+
+            return res.json();
+        }
+
+        async function loadDrafts() {
+            const { products } = await api('/api/drafts');
+            const list = document.getElementById('draft-list');
+            list.innerHTML = '';
+
+            if (!products || products.length === 0) {
+                list.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-slate-500">No pending drafts. All items are either published or not yet imported.</td></tr>';
+                return;
+            }
+
+            for (const p of products) {
+                const qc = await api(`/api/validate?url=${encodeURIComponent(p.url)}`);
+                const qcBadge = qc.is_valid
+                    ? '<span class="text-xs bg-green-900/30 text-green-400 px-2 py-1 rounded">QC Passed</span>'
+                    : `<span class="text-xs bg-red-900/30 text-red-400 px-2 py-1 rounded">${qc.issues.length} Issue${qc.issues.length > 1 ? 's' : ''}</span>`;
+
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-800/30 transition-colors';
+                row.innerHTML = `
+                    <td class="px-4 py-3 font-medium">${p.name || 'Unknown'}</td>
+                    <td class="px-4 py-3">${qcBadge}</td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="openReview('${p.url}')" class="btn-primary text-xs px-3 py-1">Review & Fix</button>
+                    </td>
+                `;
+                list.appendChild(row);
+            }
+            lucide.createIcons();
+        }
+
+        async function loadProducts() {
+            const { products } = await api('/api/state');
+            const list = document.getElementById('product-list');
+            list.innerHTML = '';
+
+            for (const p of products) {
+                const qc = await api(`/api/validate?url=${encodeURIComponent(p.url)}`);
+                const qcBadge = qc.is_valid
+                    ? '<span class="text-xs bg-green-900/30 text-green-400 px-2 py-1 rounded">QC Passed</span>'
+                    : '<span class="text-xs bg-red-900/30 text-red-400 px-2 py-1 rounded">QC Failed</span>';
+
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-800/30 transition-colors border-b border-slate-800';
+
+                const img = (p.images && p.images[0]) ? p.images[0] : '';
+                const imgHtml = img ? `<img src="${img}" class="w-12 h-12 object-contain bg-white rounded border border-slate-700" referrerpolicy="no-referrer">` : `<div class="w-12 h-12 bg-slate-800 rounded border border-slate-700 flex items-center justify-center text-slate-600 text-xs">No Img</div>`;
+
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-center">
+                        <input type="checkbox" class="product-checkbox" value="${p.url}">
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                ${imgHtml}
+                                <div class="font-medium">${p.name || 'Unknown'}</div>
+                            </div>
+                            <div class="flex flex-col items-end gap-1">
+                                <a href="${p.url}" target="_blank" class="text-[10px] text-blue-400 hover:underline flex items-center gap-1">
+                                    <i data-lucide="external-link" class="w-3 h-3"></i> Supplier Link
+                                </a>
+                                <a href="https://www.daraz.com.bd/catalog/?q=${encodeURIComponent(p.name || '')}" target="_blank" class="text-[10px] text-orange-400 hover:underline flex items-center gap-1">
+                                    <i data-lucide="shopping-bag" class="w-3 h-3"></i> Daraz Link
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">${p.cost_price || '--'}</td>
+                    <td class="px-4 py-3">
+                        <input type="number" value="${p.sell_price}" onchange="updatePrice('${p.url}', this.value)" class="w-24 p-1 text-sm">
+                    </td>
+                    <td class="px-4 py-3">${p.in_stock ? '<span class="text-green-400">Yes</span>' : '<span class="text-red-400">No</span>'}</td>
+                    <td class="px-4 py-3 flex gap-2 items-center">
+                        ${qcBadge}
+                        ${p.flags && p.flags.length ? `<span class="text-xs bg-yellow-900/30 text-yellow-500 px-2 py-1 rounded">${p.flags[0]}</span>` : ''}
+                    </td>
+                    <td class="px-4 py-3 text-right flex flex-col gap-2">
+                        <button onclick="openReview('${p.url}')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-xs font-medium text-center">Edit Product</button>
+                        <button onclick="deleteProduct('${p.url}')" class="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded text-xs font-medium text-center">Delete</button>
+                    </td>
+                `;
+                list.appendChild(row);
+            }
+            lucide.createIcons();
+        }
+
+        async function updatePrice(url, val) {
+            await api('/api/override', 'POST', { url, sell_price: val });
+            loadProducts();
+        }
+
+        async function syncSelectedStock() {
+            const selected = Array.from(document.querySelectorAll('.product-checkbox:checked')).map(cb => cb.value);
+            if (!selected.length) return alert('Please select at least one product to sync stock');
+
+            if (!confirm(`Sync stock for ${selected.length} products?`)) return;
+
+            try {
+                const res = await api('/api/sync_stock', 'POST', { urls: selected });
+                alert(res.message || 'Stock sync completed');
+                loadProducts();
+            } catch (e) {
+                alert('Sync failed: ' + e.message);
+            }
+        }
+
+        async function deleteProduct(url) {
+            if (confirm('Delete this product?')) {
+                await api('/api/delete', 'POST', { url });
+                loadProducts();
+            }
+        }
+
+        let currentReviewUrl = null;
+
+        async function openReview(url) {
+            currentReviewUrl = url;
+            const res = await api('/api/product', 'GET', null, { url });
+            const p = res.product;
+            const qc = await api(`/api/validate?url=${encodeURIComponent(url)}`);
+
+            if (!p) return alert('Product not found');
+
+            document.getElementById('rev-name').value = p.name || '';
+            document.getElementById('rev-brand').value = p.brand || '';
+            document.getElementById('rev-cat').value = p.category_hint || '';
+            document.getElementById('rev-desc').value = p.description || '';
+            document.getElementById('rev-highlights').value = Array.isArray(p.highlights) ? p.highlights.join('\\n') : (p.highlights || '');
+            document.getElementById('rev-box').value = p.box_content || '';
+
+            const images = Array.isArray(p.images) ? p.images : (p.images ? [p.images] : []);
+            renderImageGallery(images);
+
+            document.getElementById('rev-weight').value = p.weight || '0.5';
+            document.getElementById('rev-dims').value = p.dimensions || '10x10x10';
+            document.getElementById('rev-warranty').value = p.warranty || 'No Warranty';
+
+            const statusBadge = document.getElementById('rev-status-badge');
+            statusBadge.innerText = `Status: ${p.status || 'draft'}`;
+            statusBadge.className = p.status === 'published'
+                ? 'text-xs font-medium px-2 py-1 rounded bg-green-900/30 text-green-400'
+                : 'text-xs font-medium px-2 py-1 rounded bg-slate-700 text-slate-300';
+
+            const checklist = document.getElementById('rev-checklist');
+            checklist.innerHTML = '';
+            qc.issues.forEach(issue => {
+                const item = document.createElement('div');
+                item.className = `flex items-center gap-2 ${issue.type === 'error' ? 'text-red-400' : 'text-yellow-400'}`;
+                item.innerHTML = `<i data-lucide="${issue.type === 'error' ? 'alert-circle' : 'alert-triangle'}" class="w-4 h-4"></i> ${issue.msg}`;
+                checklist.appendChild(item);
+            });
+            if (!qc.issues.length) {
+                checklist.innerHTML = '<div class="text-green-400 flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> All QC checks passed!</div>';
+            }
+
+            document.getElementById('modal-review').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function renderImageGallery(images) {
+            const container = document.getElementById('rev-image-gallery');
+            container.innerHTML = '';
+
+            images.forEach((url, idx) => {
+                const card = document.createElement('div');
+                card.className = 'img-card';
+                card.onclick = () => setMainImage(idx);
+
+                card.innerHTML = `
+                    <img src="${url}" class="w-full h-full object-cover rounded" onerror="this.src='https://via.placeholder.com/150?text=Error'">
+                    <div class="overlay">
+                        <div class="bg-white text-black text-[10px] px-1 rounded font-bold">Set Main</div>
+                    </div>
+                    <div class="remove-btn" onclick="event.stopPropagation(); removeImage(${idx})">&times;</div>
+                `;
+                container.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        async function removeImage(idx) {
+            const res = await api('/api/product', 'GET', null, { url: currentReviewUrl });
+            const images = Array.isArray(res.product.images) ? [...res.product.images] : [];
+            images.splice(idx, 1);
+
+            await api('/api/update_product', 'POST', {
+                url: currentReviewUrl,
+                images: images
+            });
+
+            renderImageGallery(images);
+        }
+
+        async function setMainImage(idx) {
+            const res = await api('/api/product', 'GET', null, { url: currentReviewUrl });
+            const images = Array.isArray(res.product.images) ? [...res.product.images] : [];
+
+            const [img] = images.splice(idx, 1);
+            images.unshift(img);
+
+            await api('/api/update_product', 'POST', {
+                url: currentReviewUrl,
+                images: images
+            });
+
+            renderImageGallery(images);
+        }
+
+        function openAddImageModal() {
+            document.getElementById('modal-add-image').classList.remove('hidden');
+        }
+
+        function closeAddImageModal() {
+            document.getElementById('modal-add-image').classList.add('hidden');
+            document.getElementById('add-img-url').value = '';
+        }
+
+        async function submitAddImage() {
+            const url = document.getElementById('add-img-url').value.trim();
+            if (!url) return;
+
+            try {
+                const res = await api('/api/process_image', 'POST', { url });
+                const finalUrl = res.url;
+
+                const state = await api('/api/product', 'GET', null, { url: currentReviewUrl });
+                const images = Array.isArray(state.product.images) ? [...state.product.images] : [];
+                images.push(finalUrl);
+
+                await api('/api/update_product', 'POST', {
+                    url: currentReviewUrl,
+                    images: images
+                });
+
+                renderImageGallery(images);
+                closeAddImageModal();
+            } catch (e) {
+                alert('Failed to add image: ' + e.message);
+            }
+        }
+
+        function closeReview() {
+            document.getElementById('modal-review').classList.add('hidden');
+            currentReviewUrl = null;
+        }
+
+        async function saveReview() {
+            const body = {
+                url: currentReviewUrl,
+                name: document.getElementById('rev-name').value,
+                brand: document.getElementById('rev-brand').value,
+                box_content: document.getElementById('rev-box').value,
+                description: document.getElementById('rev-desc').value,
+                highlights: document.getElementById('rev-highlights').value.split('\\n').filter(l => l.trim()),
+                images: document.getElementById('rev-images') ? document.getElementById('rev-images').value.split('\\n').filter(l => l.trim()) : undefined,
+                weight: document.getElementById('rev-weight').value,
+                dimensions: document.getElementById('rev-dims').value,
+                warranty: document.getElementById('rev-warranty').value
+            };
+            await api('/api/update_product', 'POST', body);
+            closeReview();
+            loadProducts();
+        }
+
+        async function publishProduct() {
+            if (confirm('Publish this product to Daraz?')) {
+                await api('/api/publish', 'POST', { url: currentReviewUrl });
+                alert('Product published successfully!');
+                closeReview();
+                loadProducts();
+            }
+        }
+
+        function exportCSV() { window.open('/export.csv'); }
+        function exportJSON() { window.open('/export.json'); }
+
+        async function doUpload(type) {
+            const btn = type === 'normal' ? document.getElementById('btn-upload-normal') : document.getElementById('btn-upload-advanced');
+            const log = document.getElementById('import-log');
+            const statusDiv = document.getElementById('import-status');
+            let urls = [];
+            if (type === 'normal') {
+                urls = document.getElementById('upload-urls').value.split('\\n').map(u => u.trim()).filter(u => u);
+            } else {
+                const u = document.getElementById('upload-advanced-url').value.trim();
+                if (u) urls = [u];
+            }
+            if (!urls.length) return alert('Please enter at least one URL');
+            btn.disabled = true;
+            btn.innerText = 'Importing...';
+            statusDiv.classList.remove('hidden');
+            log.innerHTML = '';
+            try {
+                const { results } = await api('/api/add', 'POST', { urls });
+                results.forEach(r => {
+                    const entry = document.createElement('div');
+                    entry.className = r.ok ? 'text-green-400' : 'text-red-400';
+                    entry.innerText = r.ok ? `✓ ${r.url}` : `✗ ${r.url}: ${r.error}`;
+                    log.appendChild(entry);
+                });
+                loadProducts();
+            } catch (e) {
+                log.innerHTML += `<div class="text-red-500">Error: ${e.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerText = type === 'normal' ? 'Start Import' : 'Validate & Import';
+            }
+        }
+
+        async function doResearchSearch() {
+            const q = document.getElementById('res-q').value.trim();
+            const sort = document.getElementById('res-sort').value;
+            if (!q) return alert('Enter at least one product title');
+
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = 'Searching...';
+
+            try {
+                const res = await api('/api/research/search', 'GET', null, { q, sort });
+
+                if (res.error) {
+                    alert('API Error: ' + res.error);
+                    return;
+                }
+
+                const results = res.results || [];
+                const list = document.getElementById('res-list');
+                const container = document.getElementById('res-results-container');
+                const countSpan = document.getElementById('res-count');
+
+                list.innerHTML = '';
+                container.classList.remove('hidden');
+                countSpan.innerText = `${results.length} products found`;
+
+                if (results.length === 0) {
+                    list.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-slate-500">No products found on Daraz.</td></tr>';
+                    return;
+                }
+
+                results.forEach(p => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-slate-800/50 cursor-pointer transition-colors';
+                    row.onclick = () => selectResearchProduct(p.name, p.price);
+                    row.innerHTML = `
+                        <td class="px-4 py-3">${p.name}</td>
+                        <td class="px-4 py-3 text-right font-mono">Tk ${p.price.toLocaleString()}</td>
+                        <td class="px-4 py-3 text-center">
+                            <button class="text-blue-400 hover:text-blue-300 text-xs">Select</button>
+                        </td>
+                    `;
+                    list.appendChild(row);
+                });
+            } catch (e) {
+                alert('Search failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
+        }
+
+        function selectResearchProduct(name, price) {
+            document.getElementById('res-q').value = name;
+            document.getElementById('res-lowest').value = price;
+        }
+
+        async function calcResearch() {
+            const cost = document.getElementById('res-cost').value;
+            const lowest = document.getElementById('res-lowest').value;
+            if (!cost || !lowest) return alert('Fill both prices');
+            const res = await api('/api/research/calc', 'POST', { cost_price: cost, lowest_price: lowest });
+            document.getElementById('res-result').classList.remove('hidden');
+            document.getElementById('res-margin').innerText = `Tk ${res.margin}`;
+            document.getElementById('res-margin-pct').innerText = `${res.margin_pct}%`;
+            document.getElementById('res-undercut').innerText = `Tk ${res.undercut_price}`;
+            const status = document.getElementById('res-profit-status');
+            if (res.is_profitable) {
+                status.innerText = '✅ Profitable undercut possible';
+                status.className = 'mt-4 text-center text-sm font-medium text-green-400';
+            } else {
+                status.innerText = '❌ Not profitable to undercut';
+                status.className = 'mt-4 text-center text-sm font-medium text-red-400';
+            }
+        }
+
+        async function loadOrders() {
+            const { orders } = await api('/api/orders');
+            const list = document.getElementById('order-list');
+            list.innerHTML = '';
+            if (!orders || orders.length === 0) {
+                list.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">No orders found. Sync with Daraz to see updates.</td></tr>';
+                return;
+            }
+            orders.forEach(o => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3 font-mono text-xs">${o.id}</td>
+                    <td class="px-4 py-3">${o.customer}</td>
+                    <td class="px-4 py-3">${o.items}</td>
+                    <td class="px-4 py-3">Tk ${o.total}</td>
+                    <td class="px-4 py-3">${o.date}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 rounded-full text-[10px] bg-blue-900/30 text-blue-400">${o.status}</span>
+                    </td>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        async function syncOrders() {
+            const btn = document.getElementById('btn-sync-orders');
+            btn.disabled = true;
+            btn.innerText = 'Syncing...';
+            try {
+                await api('/api/orders/sync', 'POST');
+                loadOrders();
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Sync with Daraz';
+            }
+        }
+
+        async function loadSettings() {
+            const { config } = await api('/api/state');
+            document.getElementById('cfg-markup').value = config.markup_percent;
+            document.getElementById('cfg-fixed').value = config.fixed_add;
+            document.getElementById('cfg-round').value = config.round_to;
+            document.getElementById('cfg-delay').value = config.delay_seconds;
+            document.getElementById('cfg-mode-ryans').value = config.cost_price_mode.ryans;
+            document.getElementById('cfg-mode-startech').value = config.cost_price_mode.startech;
+            document.getElementById('cfg-app-key').value = config.daraz_app_key || '';
+            document.getElementById('cfg-secret').value = config.daraz_secret || '';
+            document.getElementById('cfg-token').value = config.daraz_access_token || '';
+        }
+
+        async function saveSettings() {
+            const body = {
+                markup_percent: document.getElementById('cfg-markup').value,
+                fixed_add: document.getElementById('cfg-fixed').value,
+                round_to: document.getElementById('cfg-round').value,
+                delay_seconds: document.getElementById('cfg-delay').value,
+                cost_price_mode: {
+                    ryans: document.getElementById('cfg-mode-ryans').value,
+                    startech: document.getElementById('cfg-mode-startech').value
+                },
+                daraz_app_key: document.getElementById('cfg-app-key').value,
+                daraz_secret: document.getElementById('cfg-secret').value,
+                daraz_access_token: document.getElementById('cfg-token').value
+            };
+            await api('/api/config', 'POST', body);
+            alert('Settings saved!');
+        }
+
+        window.onload = () => {
+            lucide.createIcons();
+            loadProducts();
+        };
+    </script>
+</body>
+</html>

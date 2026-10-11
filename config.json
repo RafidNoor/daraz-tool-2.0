@@ -1,0 +1,13 @@
+{
+  "delay_seconds": 3,
+  "markup_percent": 12,
+  "fixed_add": 0,
+  "round_to": 10,
+  "cost_price_mode": {
+    "ryans": "special",
+    "startech": "regular"
+  },
+  "daraz_app_key": "",
+  "daraz_secret": "",
+  "daraz_access_token": ""
+}
