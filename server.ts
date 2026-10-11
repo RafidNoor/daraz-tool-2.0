@@ -11,11 +11,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const BASE = __dirname;
-const DATA_DIR = path.join(BASE, 'data');
+// Use /tmp for writing files on Vercel serverless environment
+const IS_VERCEL = process.env.VERCEL === '1';
+const DATA_DIR = IS_VERCEL ? path.join('/tmp', 'data') : path.join(BASE, 'data');
 const DB_FILE = path.join(DATA_DIR, 'products.json');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
-const CFG_FILE = path.join(BASE, 'config.json');
-const UPLOADS_DIR = path.join(BASE, 'static', 'uploads');
+const CFG_FILE = IS_VERCEL ? path.join('/tmp', 'config.json') : path.join(BASE, 'config.json');
+const UPLOADS_DIR = IS_VERCEL ? path.join('/tmp', 'uploads') : path.join(BASE, 'static', 'uploads');
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -175,8 +177,7 @@ function parsePairs($: cheerio.CheerioAPI): Record<string, string> {
       }
     }
   });
-  $('dl').each((_, el) => {
-    $(el).find('dt').each((_, dt) => {
+  $('dl').each((_, el) => {$(el).find('dt').each((_, dt) => {
       const dd = $(dt).next('dd');
       if (dd.length) {
         const k = clean($(dt).text());
@@ -223,7 +224,7 @@ function collectImages($: cheerio.CheerioAPI, site: 'ryans' | 'startech'): strin
   const og = getMeta($, 'og:image');
 
   $('img').each((_, el) => {
-    const src = $(el).attr('data-src') || $(el).attr('src') || '';
+    const src = $(el).attr('data-src') \vert{}\vert{}$(el).attr('src') || '';
     if (site === 'ryans' && src.includes('/storage/products/main/')) {
       urls.push(src);
     }
@@ -251,7 +252,7 @@ function parseRyans($: cheerio.CheerioAPI, url: string): any {
   const special = toNumber(getMeta($, 'product:price:amount'));
   const regular = findPriceAfter($, 'Regular Price');
   const brand = getMeta($, 'product:brand') || 'No Brand';
-  const rawTitle = clean($('h1').first().text() || $('title').first().text()) || 'Unknown Product';
+  const rawTitle = clean($('h1').first().text() \vert{}\vert{}$('title').first().text()) || 'Unknown Product';
   const title = rawTitle.toLowerCase().includes(brand.toLowerCase()) ? rawTitle : `${brand} ${rawTitle}`;
   const specs = parsePairs($);
   const boxContent = specs["What's in the box"] || specs['Box Content'] || 'Product, User Manual';
@@ -652,223 +653,4 @@ app.post('/api/config', (req: Request, res: Response) => {
   const cfg = getCfg();
 
   for (const k of ['markup_percent', 'fixed_add', 'round_to', 'delay_seconds'] as const) {
-    if (k in body) {
-      (cfg as any)[k] = k === 'markup_percent' ? parseFloat(body[k]) : parseInt(body[k], 10);
-    }
-  }
-
-  if (body.daraz_app_key !== undefined) cfg.daraz_app_key = body.daraz_app_key;
-  if (body.daraz_secret !== undefined) cfg.daraz_secret = body.daraz_secret;
-  if (body.daraz_access_token !== undefined) cfg.daraz_access_token = body.daraz_access_token;
-
-  const modes = body.cost_price_mode || {};
-  for (const [site, mode] of Object.entries(modes)) {
-    if (mode === 'special' || mode === 'regular') {
-      cfg.cost_price_mode[site] = mode;
-    }
-  }
-
-  saveCfg(cfg);
-  const db = loadDb();
-  for (const p of Object.values(db)) {
-    finalizeProduct(p, cfg);
-  }
-  saveDb(db);
-
-  res.json({ config: cfg, products: Object.values(db) });
-});
-
-app.post('/api/override', (req: Request, res: Response) => {
-  const body = req.body || {};
-  const db = loadDb();
-  const p = db[body.url];
-  if (!p) return res.status(404).json({ error: 'not found' });
-
-  const val = body.sell_price;
-  p.sell_override = (val !== null && val !== undefined && val !== '' && val !== 0 && val !== '0')
-    ? parseInt(val, 10)
-    : null;
-
-  finalizeProduct(p, getCfg());
-  saveDb(db);
-  res.json({ product: p });
-});
-
-app.post('/api/delete', (req: Request, res: Response) => {
-  const url = req.body?.url;
-  const db = loadDb();
-  delete db[url];
-  saveDb(db);
-  res.json({ products: Object.values(db) });
-});
-
-app.post('/api/sync_stock', async (req: Request, res: Response) => {
-  const urls: string[] = req.body?.urls || [];
-  if (urls.length === 0) return res.status(400).json({ error: 'no urls provided' });
-
-  const cfg = getCfg();
-  const db = loadDb();
-  let syncCount = 0;
-  const updates: string[] = [];
-
-  for (const u of urls) {
-    const p = db[u];
-    if (!p) continue;
-    try {
-      const latest = await scrapeSupplierProduct(u, cfg);
-      const newStock = latest.in_stock;
-
-      if (p.in_stock !== newStock) {
-        p.in_stock = newStock;
-        p.checked = nowString();
-        syncCount++;
-        updates.push(`${p.name}: ${newStock ? 'In Stock' : 'Out of Stock'}`);
-
-        if (cfg.daraz_app_key && cfg.daraz_secret) {
-          const client = new DarazClient(cfg.daraz_app_key, cfg.daraz_secret, cfg.daraz_access_token);
-          await client.updateStock(p.supplier_sku, newStock ? 10 : 0);
-        }
-      }
-    } catch (err: any) {
-      updates.push(`Error syncing ${u}: ${err.message}`);
-    }
-  }
-
-  saveDb(db);
-  res.json({ message: `Synced ${syncCount} products`, details: updates, status: 'success' });
-});
-
-app.get('/api/research/search', async (req: Request, res: Response) => {
-  const q = String(req.query.q || '').trim();
-  const sort = String(req.query.sort || 'priceAsc');
-  if (!q) return res.status(400).json({ error: 'missing query' });
-
-  const queries = q.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
-  const allResults: Array<{ name: string; price: number }> = [];
-
-  for (const query of queries) {
-    const results = await searchDaraz(query, sort);
-    allResults.push(...results);
-  }
-
-  const seen = new Set<string>();
-  const uniqueResults: Array<{ name: string; price: number }> = [];
-  for (const r of allResults) {
-    if (!seen.has(r.name)) {
-      seen.add(r.name);
-      uniqueResults.push(r);
-    }
-  }
-
-  res.json({ results: uniqueResults });
-});
-
-app.get('/api/research/link', (req: Request, res: Response) => {
-  const query = String(req.query.q || '').trim();
-  if (!query) return res.status(400).json({ error: 'missing query' });
-  const url = `https://www.daraz.com.bd/catalog/?q=${encodeURIComponent(query)}`;
-  res.json({ url });
-});
-
-app.post('/api/research/calc', (req: Request, res: Response) => {
-  const body = req.body || {};
-  const cost = body.cost_price;
-  const lowest = body.lowest_price;
-
-  if (cost === undefined || cost === null || lowest === undefined || lowest === null) {
-    return res.status(400).json({ error: 'missing cost or lowest price' });
-  }
-
-  const costNum = parseFloat(cost);
-  const lowestNum = parseFloat(lowest);
-
-  const margin = lowestNum - costNum;
-  const marginPct = lowestNum !== 0 ? (margin / lowestNum) * 100 : 0;
-  const undercutPrice = lowestNum > 1 ? lowestNum - 1 : 0;
-  const undercutMargin = undercutPrice - costNum;
-
-  res.json({
-    margin,
-    margin_pct: Math.round(marginPct * 100) / 100,
-    undercut_price: undercutPrice,
-    undercut_margin: undercutMargin,
-    is_profitable: undercutMargin > 0
-  });
-});
-
-app.get('/api/orders', (_req: Request, res: Response) => {
-  res.json({ orders: loadOrders() });
-});
-
-app.post('/api/orders/sync', async (_req: Request, res: Response) => {
-  const cfg = getCfg();
-  const appKey = cfg.daraz_app_key;
-  const secret = cfg.daraz_secret;
-  const token = cfg.daraz_access_token;
-
-  if (!appKey || !secret) {
-    const sampleOrders = [
-      { id: 'ORD-1001', customer: 'Rahim Ahmed', items: 'Logitech G102 x1', total: 2500, date: '2026-10-09', status: 'Pending' },
-      { id: 'ORD-1002', customer: 'Sumi Akter', items: 'TP-Link Archer C6 x1', total: 4200, date: '2026-10-08', status: 'Shipped' },
-      { id: 'ORD-1003', customer: 'Karim Ullah', items: 'Razer DeathAdder x1, Mousepad x1', total: 6800, date: '2026-10-07', status: 'Delivered' }
-    ];
-    saveOrders(sampleOrders);
-    return res.json({
-      message: 'Demo Mode: Loaded sample orders (waiting for API keys)',
-      count: sampleOrders.length,
-      status: 'success'
-    });
-  }
-
-  try {
-    const client = new DarazClient(appKey, secret, token);
-    const ordersData = await client.getOrders();
-    if (ordersData?.error) {
-      return res.status(500).json({ error: ordersData.error });
-    }
-    const newOrders: any[] = [];
-    saveOrders(newOrders);
-    res.json({ message: 'Sync completed', count: newOrders.length, status: 'success' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/export.csv', (_req: Request, res: Response) => {
-  const db = loadDb();
-  const rows = [
-    ['source', 'supplier_sku', 'name', 'brand', 'cost_price', 'sell_price', 'in_stock', 'images', 'flags', 'url']
-  ];
-
-  for (const p of Object.values(db)) {
-    rows.push([
-      p.source || '',
-      p.supplier_sku || '',
-      `"${String(p.name || '').replace(/"/g, '""')}"`,
-      `"${String(p.brand || '').replace(/"/g, '""')}"`,
-      String(p.cost_price ?? ''),
-      String(p.sell_price ?? ''),
-      String(p.in_stock ?? ''),
-      `"${(p.images || []).join(' | ').replace(/"/g, '""')}"`,
-      `"${(p.flags || []).join('; ').replace(/"/g, '""')}"`,
-      p.url || ''
-    ]);
-  }
-
-  const csvContent = '\uFEFF' + rows.map(r => r.join(',')).join('\n');
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename=products.csv');
-  res.send(csvContent);
-});
-
-app.get('/export.json', (_req: Request, res: Response) => {
-  const db = loadDb();
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename=products.json');
-  res.send(JSON.stringify(Object.values(db), null, 2));
-});
-
-const PORT = 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Supplier Desk server running on http://0.0.0.0:${PORT}`);
-});
+    if (
